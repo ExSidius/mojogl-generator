@@ -2,20 +2,19 @@
 
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import Dict, Set
 
-from .types import GLType, GLEnum, GLParam, GLCommand
+from .types import GLCommand, GLEnum, GLParam, GLType
 
 
 class GLRegistry:
     """Parser and code generator for OpenGL registry XML."""
 
     def __init__(self) -> None:
-        self.types: Dict[str, GLType] = {}
-        self.enums: Dict[str, GLEnum] = {}
-        self.commands: Dict[str, GLCommand] = {}
-        self.features: Dict[str, Set[str]] = {}  # version -> command names
-        self.extensions: Dict[str, Set[str]] = {}  # extension -> command names
+        self.types: dict[str, GLType] = {}
+        self.enums: dict[str, GLEnum] = {}
+        self.commands: dict[str, GLCommand] = {}
+        self.features: dict[str, set[str]] = {}  # version -> command names
+        self.extensions: dict[str, set[str]] = {}  # extension -> command names
 
         # C to Mojo type mapping
         self.c_to_mojo = {
@@ -114,10 +113,7 @@ class GLRegistry:
         else:
             # Look for type in text content
             text_content = "".join(param_elem.itertext()).strip()
-            if "void" in text_content:
-                gl_type = "void"
-            else:
-                gl_type = "void"  # fallback
+            gl_type = "void" if "void" in text_content else "GLvoid"
 
         # Count pointer depth by counting '*' characters
         full_text = "".join(param_elem.itertext())
@@ -161,10 +157,7 @@ class GLRegistry:
             else:
                 # Look for type in proto text
                 proto_text = "".join(proto_elem.itertext()).strip()
-                if proto_text.startswith("void"):
-                    return_type = "void"
-                else:
-                    return_type = "void"  # fallback
+                return_type = "void" if proto_text.startswith("void") else "GLvoid"
 
             # Parse parameters
             params = []
@@ -206,7 +199,7 @@ class GLRegistry:
 
             self.features[number] = command_names
 
-    def get_commands_for_version(self, target_version: str) -> Set[str]:
+    def get_commands_for_version(self, target_version: str) -> set[str]:
         """Get all commands available in a specific OpenGL version."""
         available_commands = set()
 
@@ -291,7 +284,7 @@ class GLRegistry:
         ]
 
         # Group enums by their group when available
-        groups: Dict[str, list[GLEnum]] = {}
+        groups: dict[str, list[GLEnum]] = {}
         ungrouped = []
 
         for enum in self.enums.values():

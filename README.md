@@ -15,11 +15,14 @@ OpenGL bindings for Mojo, automatically generated from the Khronos OpenGL regist
 ### Generate Bindings
 
 ```bash
-# Download and generate OpenGL 4.6 core bindings
-python tools/generate_gl_bindings.py --download --version 4.6
+# Install generator
+uv add mojogl-generator
 
-# Generate for specific version
-python tools/generate_gl_bindings.py --version 3.3
+# Generate OpenGL 4.6 core bindings
+uv run mojogl-generate --download --version 4.6 --output-dir mojo/mojogl
+
+# Generate for specific version  
+uv run mojogl-generate --version 3.3 --output-dir mojo/mojogl
 ```
 
 ### Use in Mojo Code
@@ -48,18 +51,16 @@ fn main() raises:
 
 ```
 mojogl/
-├── src/mojogl/                 # Generated Mojo package
+├── mojo/mojogl/                # Generated Mojo package
 │   ├── __init__.mojo           # Package init
 │   ├── gl_types.mojo           # Type aliases (GLint, GLfloat, etc.)
 │   ├── gl_enums.mojo           # OpenGL constants
 │   ├── gl_core_4_6.mojo        # Function declarations
 │   ├── gl_loader.mojo          # Dynamic loading functions
 │   └── examples/               # Example programs
-├── tools/
-│   ├── generate_gl_bindings.py # Generator script
-│   └── gl.xml                  # OpenGL registry (downloaded)
+├── src/mojogl_generator/       # Python generator package
 ├── tests/                      # Python tests for generator
-└── README.md
+└── pyproject.toml              # Python package configuration
 ```
 
 ## Development
@@ -67,14 +68,14 @@ mojogl/
 ### Running Tests
 
 ```bash
-# Install test dependencies
-pip install -r requirements.txt
+# Install with dev dependencies
+uv sync --extra dev
 
 # Run generator tests
-python -m pytest tests/
+uv run pytest
 
 # Generate bindings for testing
-python tools/generate_gl_bindings.py --download
+uv run mojogl-generate --download --output-dir mojo/mojogl
 ```
 
 ### Supported OpenGL Versions

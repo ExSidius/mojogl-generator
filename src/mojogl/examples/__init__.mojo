@@ -1,1 +1,0 @@
-# Examples for MojoGL usage

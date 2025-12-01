@@ -1,0 +1,163 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+      with:
+        version: "latest"
+    
+    - name: Set up Python
+      run: uv python install
+    
+    - name: Install dependencies
+      run: uv sync --extra dev
+    
+    - name: Run tests
+      run: uv run pytest
+
+  generate-bindings:
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        opengl_version: ["3.3", "4.0", "4.1", "4.2", "4.3", "4.4", "4.5", "4.6"]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+      with:
+        version: "latest"
+    
+    - name: Set up Python
+      run: uv python install
+    
+    - name: Install dependencies
+      run: uv sync
+    
+    - name: Generate OpenGL ${{ matrix.opengl_version }} bindings
+      run: |
+        mkdir -p release/mojogl-opengl-${{ matrix.opengl_version }}
+        uv run mojogl-generate \
+          --download \
+          --version ${{ matrix.opengl_version }} \
+          --output-dir release/mojogl-opengl-${{ matrix.opengl_version }}/mojogl
+    
+    - name: Create README for bindings
+      run: |
+        cat > release/mojogl-opengl-${{ matrix.opengl_version }}/README.md << 'EOF'
+        # MojoGL - OpenGL ${{ matrix.opengl_version }} Bindings
+        
+        Pre-generated Mojo bindings for OpenGL ${{ matrix.opengl_version }}.
+        
+        ## Usage
+        
+        Copy the `mojogl/` directory to your Mojo project and import:
+        
+        ```mojo
+        from sys.ffi import OwnedDLHandle
+        from mojogl.gl_loader import load_gl_core_${{ matrix.opengl_version | replace('.', '_') }}
+        from mojogl import glClear, glClearColor
+        
+        fn main() raises:
+            let gl_lib = OwnedDLHandle("libGL.so.1")  # or platform-specific
+            load_gl_core_${{ matrix.opengl_version | replace('.', '_') }}(gl_lib)
+            
+            glClearColor(0.0, 0.0, 0.0, 1.0)
+            glClear(GL_COLOR_BUFFER_BIT)
+        ```
+        
+        ## Generated from
+        - MojoGL Generator: ${{ github.ref_name }}
+        - OpenGL Registry: Khronos official gl.xml
+        - Generated on: ${{ github.run_date }}
+        EOF
+    
+    - name: Package bindings
+      run: |
+        cd release
+        tar -czf mojogl-opengl-${{ matrix.opengl_version }}.tar.gz mojogl-opengl-${{ matrix.opengl_version }}/
+    
+    - name: Upload bindings artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: mojogl-opengl-${{ matrix.opengl_version }}
+        path: release/mojogl-opengl-${{ matrix.opengl_version }}.tar.gz
+
+  create-release:
+    needs: generate-bindings
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: ./artifacts
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        name: MojoGL ${{ github.ref_name }}
+        body: |
+          ## MojoGL ${{ github.ref_name }}
+          
+          Pre-generated OpenGL bindings for Mojo.
+          
+          ### Downloads
+          - **mojogl-opengl-3.3.tar.gz** - OpenGL 3.3 Core (widely supported)
+          - **mojogl-opengl-4.6.tar.gz** - OpenGL 4.6 Core (latest, recommended)
+          - Other versions available for specific compatibility needs
+          
+          ### Usage
+          1. Download the appropriate version for your target OpenGL support
+          2. Extract to your Mojo project
+          3. See the included README.md for integration instructions
+          
+          ### Generator Tool
+          Install the generator tool for custom versions:
+          ```bash
+          uv tool install mojogl-generator==${{ github.ref_name }}
+          mojogl-generate --version 4.5 --output-dir my_project/opengl
+          ```
+        files: ./artifacts/*/mojogl-opengl-*.tar.gz
+        draft: false
+        prerelease: false
+
+  publish-pypi:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write  # For trusted publishing
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+      with:
+        version: "latest"
+    
+    - name: Set up Python
+      run: uv python install
+    
+    - name: Build package
+      run: uv build
+    
+    - name: Publish to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1

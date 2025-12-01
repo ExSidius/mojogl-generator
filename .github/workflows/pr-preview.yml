@@ -1,0 +1,90 @@
+name: PR Preview
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  preview-generation:
+    runs-on: ubuntu-latest
+    if: github.event.action == 'opened' || github.event.action == 'synchronize'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+      with:
+        version: "latest"
+    
+    - name: Set up Python
+      run: uv python install
+    
+    - name: Install dependencies
+      run: uv sync
+    
+    - name: Test generation of OpenGL 4.6 bindings
+      run: |
+        mkdir -p preview/mojogl
+        uv run mojogl-generate \
+          --download \
+          --version 4.6 \
+          --output-dir preview/mojogl
+    
+    - name: Verify generated files
+      run: |
+        echo "## Generated Files Preview" > preview_summary.md
+        echo "" >> preview_summary.md
+        echo "Successfully generated OpenGL 4.6 bindings:" >> preview_summary.md
+        echo "" >> preview_summary.md
+        ls -la preview/mojogl/ | while read line; do
+          echo "- $line" >> preview_summary.md
+        done
+        echo "" >> preview_summary.md
+        echo "### File sizes:" >> preview_summary.md
+        du -h preview/mojogl/* >> preview_summary.md
+        echo "" >> preview_summary.md
+        echo "### Sample functions (first 10):" >> preview_summary.md
+        echo "\`\`\`mojo" >> preview_summary.md
+        head -16 preview/mojogl/gl_core_4_6.mojo | tail -10 >> preview_summary.md
+        echo "\`\`\`" >> preview_summary.md
+    
+    - name: Comment PR with preview
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const summary = fs.readFileSync('preview_summary.md', 'utf8');
+          
+          // Find existing preview comment
+          const comments = await github.rest.issues.listComments({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number
+          });
+          
+          const existingComment = comments.data.find(comment => 
+            comment.body.includes('## Generated Files Preview')
+          );
+          
+          const commentBody = `${summary}
+          
+          <sub>🤖 This preview was generated automatically. The bindings will be available in releases once merged.</sub>`;
+          
+          if (existingComment) {
+            // Update existing comment
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: existingComment.id,
+              body: commentBody
+            });
+          } else {
+            // Create new comment
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: commentBody
+            });
+          }

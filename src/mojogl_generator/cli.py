@@ -1,9 +1,9 @@
 """Command line interface for the MojoGL generator."""
 
 import argparse
-from pathlib import Path
 import sys
 import urllib.request
+from pathlib import Path
 
 from .registry import GLRegistry
 

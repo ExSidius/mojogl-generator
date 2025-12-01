@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """Tests for the OpenGL binding generator."""
 
-import pytest
+import tempfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
-import tempfile
 
-from mojogl_generator import GLRegistry, GLType, GLEnum, GLParam, GLCommand
+import pytest
+
+from mojogl_generator import GLCommand, GLEnum, GLParam, GLRegistry, GLType
 
 
 class TestGLTypeMapping:

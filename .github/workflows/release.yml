@@ -47,6 +47,9 @@ jobs:
     - name: Install dependencies
       run: uv sync
     
+    - name: Set version environment variable
+      run: echo "VERSION_SAFE=$(echo '${{ matrix.opengl_version }}' | sed 's/\./_/g')" >> $GITHUB_ENV
+    
     - name: Generate OpenGL ${{ matrix.opengl_version }} bindings
       run: |
         mkdir -p release/mojogl-opengl-${{ matrix.opengl_version }}
@@ -68,12 +71,12 @@ jobs:
         
         ```mojo
         from sys.ffi import OwnedDLHandle
-        from mojogl.gl_loader import load_gl_core_${{ matrix.opengl_version | replace('.', '_') }}
+        from mojogl.gl_loader import load_gl_core_${{ env.VERSION_SAFE }}
         from mojogl import glClear, glClearColor
         
         fn main() raises:
             let gl_lib = OwnedDLHandle("libGL.so.1")  # or platform-specific
-            load_gl_core_${{ matrix.opengl_version | replace('.', '_') }}(gl_lib)
+            load_gl_core_${{ env.VERSION_SAFE }}(gl_lib)
             
             glClearColor(0.0, 0.0, 0.0, 1.0)
             glClear(GL_COLOR_BUFFER_BIT)
